@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>GitHub Gantt — Issue Dependency Manager</title>
+        <script type="module" src="/src/main.js"></script>
+    </head>
+    <body>
+        <!-- ── Config Screen ─────────────────────────────────────── -->
+        <div id="config-screen" class="screen-hidden">
+            <div class="config-card">
+                <div class="config-logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="40" height="40" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    <h1>GitHub Gantt</h1>
+                </div>
+                <p class="config-subtitle">Visualise and manage GitHub Issue dependencies on a Gantt chart.</p>
+
+                <form id="config-form" autocomplete="off">
+                    <label for="gh-token">
+                        Personal Access Token
+                        <a href="https://github.com/settings/tokens/new?scopes=repo&description=GitHub+Gantt"
+                           target="_blank" rel="noopener noreferrer"
+                           class="help-link">(create one ↗)</a>
+                    </label>
+                    <input
+                        type="password"
+                        id="gh-token"
+                        name="gh-token"
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        autocomplete="off"
+                        required
+                    />
+
+                    <label for="gh-repo">Repository</label>
+                    <input
+                        type="text"
+                        id="gh-repo"
+                        name="gh-repo"
+                        placeholder="owner/repo"
+                        pattern="[^/]+/[^/]+"
+                        title="Must be in owner/repo format"
+                        required
+                    />
+
+                    <p class="config-note">
+                        Your token is stored only in your browser's <code>localStorage</code> and
+                        sent directly to the GitHub API — never to any third-party server.
+                    </p>
+
+                    <p id="config-error" class="config-error" aria-live="polite"></p>
+
+                    <button type="submit">Load Issues</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── Blocked-by Dialog ─────────────────────────────────── -->
+        <div id="blocked-by-dialog" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="bb-title">
+            <div class="modal-card bb-card">
+                <div class="modal-header">
+                    <h2 id="bb-title">Add blocked-by dependency</h2>
+                    <button id="bb-close" class="modal-close" aria-label="Close">✕</button>
+                </div>
+                <div class="bb-body">
+                    <p id="bb-desc" class="bb-desc"></p>
+                    <div class="bb-input-row">
+                        <span class="bb-hash">#</span>
+                        <input id="bb-input" type="number" min="1" step="1"
+                               placeholder="issue number" autocomplete="off" />
+                    </div>
+                    <p id="bb-error" class="bb-error" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" id="bb-cancel" class="icon-btn">Cancel</button>
+                        <button type="button" id="bb-confirm">Add dependency</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Add Parent Dialog ─────────────────────────────────── -->
+        <div id="parent-dialog" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="pd-title">
+            <div class="modal-card bb-card">
+                <div class="modal-header">
+                    <h2 id="pd-title">Set parent issue</h2>
+                    <button id="pd-close" class="modal-close" aria-label="Close">✕</button>
+                </div>
+                <div class="bb-body">
+                    <p id="pd-desc" class="bb-desc"></p>
+                    <div class="bb-input-row">
+                        <span class="bb-hash">#</span>
+                        <input id="pd-input" type="number" min="1" step="1"
+                               placeholder="parent issue number" autocomplete="off" />
+                    </div>
+                    <p id="pd-error" class="bb-error" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" id="pd-cancel" class="icon-btn">Cancel</button>
+                        <button type="button" id="pd-confirm">Set parent</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Settings Modal ──────────────────────────────────── -->
+        <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h2 id="modal-title">Settings</h2>
+                    <button id="modal-close" class="modal-close" aria-label="Close">✕</button>
+                </div>
+
+                <form id="settings-form" autocomplete="off">
+                    <label for="s-gh-token">
+                        Personal Access Token
+                        <a href="https://github.com/settings/tokens/new?scopes=repo&description=GitHub+Gantt"
+                           target="_blank" rel="noopener noreferrer" class="help-link">(create one ↗)</a>
+                    </label>
+                    <input type="password" id="s-gh-token" name="s-gh-token"
+                           placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required />
+
+                    <label for="s-gh-repo">Repository</label>
+                    <input type="text" id="s-gh-repo" name="s-gh-repo"
+                           placeholder="owner/repo" pattern="[^/]+/[^/]+"
+                           title="Must be in owner/repo format" required />
+
+                    <p class="config-note">
+                        Your token is stored only in <code>localStorage</code> and sent
+                        directly to the GitHub API — never to any third-party server.
+                    </p>
+
+                    <p id="settings-error" class="config-error" aria-live="polite"></p>
+
+                    <div class="modal-actions">
+                        <button type="button" id="settings-logout" class="danger-btn">Sign out</button>
+                        <button type="submit">Apply &amp; Reload</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── Main App ──────────────────────────────────────────── -->
+        <div id="main-screen" class="screen-hidden">
+            <!-- Toolbar -->
+            <header class="toolbar">
+                <div class="toolbar-left">
+                    <svg class="toolbar-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    <span id="repo-label" class="repo-label">—</span>
+                </div>
+
+                <div class="toolbar-center">
+                    <div class="view-group" role="group" aria-label="View mode">
+                        <button data-view="Day"   class="view-btn">Day</button>
+                        <button data-view="Week"  class="view-btn active">Week</button>
+                        <button data-view="Month" class="view-btn">Month</button>
+                    </div>
+                </div>
+
+                <div class="toolbar-right">
+                    <button id="reload-btn" class="icon-btn" title="Reload issues">↺ Reload</button>
+                    <button id="save-btn" class="primary-btn" disabled>💾 Save</button>
+                    <button id="settings-btn" class="icon-btn" title="Settings">⚙ Settings</button>
+                    <button id="toolbar-hide-btn" class="icon-btn" title="Hide toolbar">⌃</button>
+                </div>
+            </header>
+
+            <!-- Collapsed toolbar strip (shown when toolbar is hidden) -->
+            <div id="toolbar-collapsed" class="toolbar-collapsed hidden" title="Show toolbar">
+                <button id="toolbar-show-btn">⌄ Show toolbar</button>
+            </div>
+
+            <!-- Label filter bar -->
+            <div id="label-filter-bar" class="label-filter-bar hidden">
+                <span class="filter-label-text">Labels:</span>
+                <div id="label-filter-pills" class="label-filter-pills"></div>
+                <button id="label-filter-clear" class="filter-clear-btn hidden">✕ Clear</button>
+                <div class="filter-title-wrap">
+                    <input id="title-filter" type="search" class="title-filter-input"
+                           placeholder="Filter by title…" autocomplete="off" />
+                </div>
+            </div>
+
+            <!-- Gantt + Sidebar layout -->
+            <div class="gantt-layout">
+                <div id="gantt-wrapper" class="gantt-wrapper"></div>
+
+                <!-- Dependency / detail sidebar -->
+                <aside id="sidebar" class="sidebar hidden" aria-label="Issue details">
+                    <div class="sidebar-header">
+                        <h3 id="sidebar-title">Issue</h3>
+                        <button id="sidebar-close" class="sidebar-close" aria-label="Close sidebar">✕</button>
+                    </div>
+                    <div id="sidebar-body" class="sidebar-body"></div>
+                </aside>
+            </div>
+
+            <!-- Status bar -->
+            <div id="status-bar" class="status-bar" aria-live="polite"></div>
+        </div>
+    </body>
+</html>

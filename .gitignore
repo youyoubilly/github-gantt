@@ -1,0 +1,5 @@
+.github/agents/
+github-gantt/node_modules/
+
+github-gantt/dist/*
+
