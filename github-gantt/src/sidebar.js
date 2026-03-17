@@ -10,6 +10,7 @@ import { state } from './state.js';
 import { escHtml, escAttr, fmtDate, labelTextColor, normalizeDeps } from './utils.js';
 import { parseRepo, setStatus, getConfig } from './config.js';
 import { recordChange, cascadeDateShift, clampStartToDeps, refreshGanttDates, getLiveTasks } from './tasks.js';
+import { fetchIssueComments } from './github.js';
 
 const sidebar        = document.getElementById('sidebar');
 const sidebarTitle   = document.getElementById('sidebar-title');
@@ -27,6 +28,28 @@ function renderMarkdown(text) {
     return marked(text);
 }
 
+/**
+ * Update just the comments section after fetching comments.
+ */
+function _updateCommentsSection(issue) {
+    const commentsList = document.getElementById('comments-list');
+    if (!commentsList) return;
+
+    const commentsHtml = issue._comments && issue._comments.length > 0 
+        ? issue._comments.map((comment) => `
+            <div class="comment-item">
+                <div class="comment-header">
+                    <strong>${escHtml(comment.user?.login || 'Unknown')}</strong>
+                    <span class="comment-date">${new Date(comment.created_at).toLocaleDateString()}</span>
+                </div>
+                <div class="comment-body">${renderMarkdown(comment.body)}</div>
+            </div>
+        `).join('')
+        : '<div class="no-comments">No comments yet</div>';
+
+    commentsList.innerHTML = commentsHtml;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -37,7 +60,7 @@ function renderMarkdown(text) {
  * @param {Function} options.onAddDependency   (issueId, depId) → void
  * @param {Function} options.onRemoveDependency (issueId, depId) → void
  */
-export function openSidebar(task, { onAddDependency, onRemoveDependency } = {}) {
+export async function openSidebar(task, { onAddDependency, onRemoveDependency } = {}) {
     state.selectedTaskId = task.id;
     const issue = task._issue;
 
@@ -49,10 +72,47 @@ export function openSidebar(task, { onAddDependency, onRemoveDependency } = {}) 
     const allDeps      = normalizeDeps(taskNow.dependencies);
     const parentDepsSet = new Set(taskNow._parentDeps || []);
 
+    // Initialize empty comments array if not present
+    if (!issue._comments) {
+        issue._comments = [];
+    }
+
+    // Render sidebar first with empty comments
     _renderSidebar(issue, taskNow, allDeps, parentDepsSet, liveTasks, {
         onAddDependency,
         onRemoveDependency,
     });
+
+    // Then fetch comments and update the comments section separately
+    try {
+        const config = getConfig();
+        console.log('Config for comments:', config);
+        
+        // Parse repo in format "owner/repo" if needed
+        let owner = config?.owner;
+        let repo = config?.repo;
+        if (!owner && repo && repo.includes('/')) {
+            [owner, repo] = repo.split('/');
+        }
+        
+        console.log('Parsed config - owner:', owner, 'repo:', repo, 'hasToken:', !!config?.token);
+        
+        if (config && config.token && owner && repo) {
+            console.log(`Fetching comments for issue #${issue.number}...`);
+            const fetchedComments = await fetchIssueComments(owner, repo, config.token, issue.number);
+            console.log(`Fetched ${fetchedComments.length} comments for issue #${issue.number}`, fetchedComments);
+            issue._comments = fetchedComments;
+            
+            // Update just the comments section
+            _updateCommentsSection(issue);
+        } else {
+            console.log('Missing config for comments fetching', { owner, repo, hasToken: !!config?.token });
+            issue._comments = [];
+        }
+    } catch (err) {
+        console.error(`Failed to fetch comments for issue #${issue.number}:`, err);
+        issue._comments = [];
+    }
 }
 
 export function closeSidebar() {
@@ -233,21 +293,11 @@ function _renderSidebar(issue, task, deps, parentDeps, liveTasks, { onAddDepende
             <div class="section-header">
                 <h4>Comments <span class="comment-count">${issue.comments || 0}</span></h4>
                 <button id="comments-toggle-btn" class="toggle-btn" title="Toggle comments section">
-                    <span class="toggle-icon">▶</span>
+                    <span class="toggle-icon">▼</span>
                 </button>
             </div>
-            <div id="comments-list" class="comments-list collapsed">
-                ${issue._comments && issue._comments.length > 0 
-                    ? issue._comments.map((comment) => `
-                        <div class="comment-item">
-                            <div class="comment-header">
-                                <strong>${escHtml(comment.user?.login || 'Unknown')}</strong>
-                                <span class="comment-date">${new Date(comment.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <div class="comment-body">${renderMarkdown(comment.body)}</div>
-                        </div>
-                    `).join('')
-                    : '<div class="no-comments">No comments yet</div>'}
+            <div id="comments-list" class="comments-list">
+                <div class="no-comments">Loading comments...</div>
             </div>
         </div>
         <div class="sidebar-section">

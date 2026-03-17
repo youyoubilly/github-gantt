@@ -54,7 +54,7 @@ export async function fetchIssueComments(owner, repo, token, issueNumber) {
 
 /**
  * Fetch all (open + closed) issues for a repo, filtering out pull requests.
- * Handles pagination automatically. Also fetches comments for each issue.
+ * Handles pagination automatically.
  */
 export async function fetchAllIssues(owner, repo, token) {
     const issues = [];
@@ -69,17 +69,6 @@ export async function fetchAllIssues(owner, repo, token) {
         );
         // GitHub issues endpoint also returns PRs; filter them out.
         const onlyIssues = batch.filter((i) => !i.pull_request);
-        
-        // Fetch comments for each issue
-        for (const issue of onlyIssues) {
-            try {
-                issue._comments = await fetchIssueComments(owner, repo, token, issue.number);
-            } catch (err) {
-                console.warn(`Failed to fetch comments for issue #${issue.number}:`, err);
-                issue._comments = [];
-            }
-        }
-        
         issues.push(...onlyIssues);
         if (batch.length < 100) break;
         page++;
