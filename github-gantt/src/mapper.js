@@ -112,10 +112,22 @@ export function issueToTask(issue, parentMap = new Map()) {
  * the user makes changes in the Gantt chart.
  *
  * @param {object} issue   Original GitHub issue object
- * @param {object} updates Partial update: { start, end, progress, deps }
+ * @param {object} updates Partial update: { start, end, progress, deps, body }
  */
 export function buildUpdatedBody(issue, updates) {
     const existing = parseMeta(issue.body) || {};
-    const merged = { ...existing, ...updates };
+    
+    // If user edited the body directly, use that as the base (with metadata added back)
+    if (updates.body !== undefined) {
+        return writeMeta(updates.body, existing);
+    }
+    
+    // Otherwise, keep the original body and just update metadata
+    const merged = { ...existing };
+    if (updates.start !== undefined) merged.start = updates.start;
+    if (updates.end !== undefined) merged.end = updates.end;
+    if (updates.progress !== undefined) merged.progress = updates.progress;
+    if (updates.deps !== undefined) merged.deps = updates.deps;
+    
     return writeMeta(issue.body, merged);
 }

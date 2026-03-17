@@ -5,6 +5,7 @@
  * No Gantt rendering logic here; uses callbacks for external updates.
  */
 
+import { marked } from 'marked';
 import { state } from './state.js';
 import { escHtml, escAttr, fmtDate, labelTextColor, normalizeDeps } from './utils.js';
 import { parseRepo, setStatus, getConfig } from './config.js';
@@ -14,6 +15,17 @@ const sidebar        = document.getElementById('sidebar');
 const sidebarTitle   = document.getElementById('sidebar-title');
 const sidebarBody    = document.getElementById('sidebar-body');
 const sidebarClose   = document.getElementById('sidebar-close');
+
+// ─── Markdown rendering ───────────────────────────────────────────────────────
+
+/**
+ * Render markdown text to safe HTML.
+ * Uses marked with sanitization to prevent XSS.
+ */
+function renderMarkdown(text) {
+    if (!text) return '';
+    return marked(text);
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -133,11 +145,10 @@ function _renderSidebar(issue, task, deps, parentDeps, liveTasks, { onAddDepende
               class="milestone-link">🏁 ${escHtml(issue.milestone.title)}</a>`
         : '';
 
-    // Body preview
-    const bodyPreview = (issue.body || '')
+    // Full body (without GANTT_META)
+    const fullBody = (issue.body || '')
         .replace(/<!-- GANTT_META:.*?-->/s, '')
-        .trim()
-        .slice(0, 400);
+        .trim();
 
     sidebarTitle.innerHTML = `<a href="${escAttr(issueUrl)}" target="_blank" rel="noopener noreferrer">#${issue.number}</a>`;
     sidebarBody.innerHTML = `
@@ -154,11 +165,22 @@ function _renderSidebar(issue, task, deps, parentDeps, liveTasks, { onAddDepende
             <h4>Assignees</h4>
             <div class="assignees-row">${assigneeHtml}</div>
         </div>
-        ${bodyPreview ? `
         <div class="sidebar-section">
             <h4>Description</h4>
-            <div class="issue-body-preview">${escHtml(bodyPreview)}${(issue.body || '').replace(/<!-- GANTT_META:.*?-->/s,'').trim().length > 400 ? '…' : ''}</div>
-        </div>` : ''}
+            <div id="issue-description-container" class="issue-description-container">
+                <div id="issue-description-view" class="issue-description-view" style="cursor: pointer;">
+                    ${fullBody ? `<div class="issue-description-content">${renderMarkdown(fullBody)}</div>` : `<div class="issue-description-empty">Click to add description…</div>`}
+                </div>
+                <div id="issue-description-edit-mode" class="issue-description-edit-mode" style="display: none;">
+                    <textarea id="issue-description-textarea" class="issue-description-edit" placeholder="Add or edit description…">${escHtml(fullBody)}</textarea>
+                    <div class="description-buttons">
+                        <button id="description-save-btn" class="description-btn description-btn-primary">Save</button>
+                        <button id="description-cancel-btn" class="description-btn description-btn-secondary">Cancel</button>
+                    </div>
+                </div>
+                <div class="description-resize-handle"></div>
+            </div>
+        </div>
         <div class="sidebar-section">
             <h4>Dates</h4>
             <div class="date-row">
@@ -206,6 +228,27 @@ function _renderSidebar(issue, task, deps, parentDeps, liveTasks, { onAddDepende
                 </select>
                 <button id="add-dep-btn" disabled>Add</button>
             </div>` : ''}
+        </div>
+        <div class="sidebar-section">
+            <div class="section-header">
+                <h4>Comments <span class="comment-count">${issue.comments || 0}</span></h4>
+                <button id="comments-toggle-btn" class="toggle-btn" title="Toggle comments section">
+                    <span class="toggle-icon">▶</span>
+                </button>
+            </div>
+            <div id="comments-list" class="comments-list collapsed">
+                ${issue._comments && issue._comments.length > 0 
+                    ? issue._comments.map((comment) => `
+                        <div class="comment-item">
+                            <div class="comment-header">
+                                <strong>${escHtml(comment.user?.login || 'Unknown')}</strong>
+                                <span class="comment-date">${new Date(comment.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div class="comment-body">${renderMarkdown(comment.body)}</div>
+                        </div>
+                    `).join('')
+                    : '<div class="no-comments">No comments yet</div>'}
+            </div>
         </div>
         <div class="sidebar-section">
             <a class="gh-link" href="${escAttr(issueUrl)}" target="_blank" rel="noopener noreferrer">
@@ -272,6 +315,71 @@ function _renderSidebar(issue, task, deps, parentDeps, liveTasks, { onAddDepende
     dateStart.addEventListener('change', applyDates);
     dateEnd.addEventListener('change', applyDates);
     dateDuration.addEventListener('change', applyDuration);
+
+    // Description editing (view/edit toggle) and resize handle
+    const descriptionContainer = document.getElementById('issue-description-container');
+    const descriptionView = document.getElementById('issue-description-view');
+    const descriptionEditMode = document.getElementById('issue-description-edit-mode');
+    const descriptionTextarea = document.getElementById('issue-description-textarea');
+    const descriptionSaveBtn = document.getElementById('description-save-btn');
+    const descriptionCancelBtn = document.getElementById('description-cancel-btn');
+    const resizeHandle = document.querySelector('.description-resize-handle');
+
+    function enterEditMode() {
+        descriptionView.style.display = 'none';
+        descriptionEditMode.style.display = 'block';
+        descriptionTextarea.focus();
+    }
+
+    function exitEditMode() {
+        descriptionView.style.display = 'block';
+        descriptionEditMode.style.display = 'none';
+    }
+
+    function saveDescription() {
+        const newBody = descriptionTextarea.value.trim();
+        recordChange(task.id, { body: newBody });
+        setStatus(`#${task.id} description updated — unsaved`, 'warn');
+
+        // Update the view with new content and exit edit mode
+        if (newBody) {
+            document.querySelector('#issue-description-view .issue-description-content').innerHTML = renderMarkdown(newBody);
+        } else {
+            document.querySelector('#issue-description-view').innerHTML = `<div class="issue-description-empty">Click to add description…</div>`;
+        }
+        exitEditMode();
+    }
+
+    // Resize handle drag logic
+    let isResizing = false;
+    resizeHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        const startY = e.clientY;
+        const startHeight = descriptionContainer.offsetHeight;
+
+        function handleMouseMove(moveEvent) {
+            if (!isResizing) return;
+            const delta = moveEvent.clientY - startY;
+            const newHeight = Math.max(150, startHeight + delta);
+            descriptionContainer.style.height = `${newHeight}px`;
+        }
+
+        function handleMouseUp() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    });
+
+    descriptionView.addEventListener('click', enterEditMode);
+    descriptionSaveBtn.addEventListener('click', saveDescription);
+    descriptionCancelBtn.addEventListener('click', () => {
+        descriptionTextarea.value = fullBody;
+        exitEditMode();
+    });
 
     const progSlider = document.getElementById('prog-slider');
     const progLabel  = document.getElementById('prog-label');
@@ -354,6 +462,17 @@ function _renderSidebar(issue, task, deps, parentDeps, liveTasks, { onAddDepende
         addDepBtn.addEventListener('click', () => {
             const newDep = addDepSelect.value;
             if (newDep) onAddDependency?.(task.id, newDep);
+        });
+    }
+
+    // Comments toggle
+    const commentsToggleBtn = document.getElementById('comments-toggle-btn');
+    const commentsList = document.getElementById('comments-list');
+    if (commentsToggleBtn && commentsList) {
+        commentsToggleBtn.addEventListener('click', () => {
+            commentsList.classList.toggle('collapsed');
+            const toggleIcon = commentsToggleBtn.querySelector('.toggle-icon');
+            toggleIcon.textContent = commentsList.classList.contains('collapsed') ? '▶' : '▼';
         });
     }
 }

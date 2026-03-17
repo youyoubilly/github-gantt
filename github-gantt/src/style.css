@@ -1069,19 +1069,285 @@ code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.85em; }
 }
 .milestone-link:hover { color: var(--color-info); }
 
-/* Issue body preview */
-.issue-body-preview {
+/* Issue description view/edit */
+.issue-description-view {
     font-size: 0.82em;
     color: var(--color-text-muted);
     line-height: 1.55;
     white-space: pre-wrap;
     word-break: break-word;
+    background: transparent;
+    padding: 0;
+    transition: all 0.15s ease;
+}
+
+.issue-description-view:hover {
+    background: var(--color-surface);
+    border-color: var(--color-info);
+}
+
+.issue-description-content {
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.issue-description-empty {
+    color: var(--color-text-muted);
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.issue-description-edit-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Editable description textarea */
+.issue-description-edit {
+    width: 100%;
+    height: 90%;
+    font-size: 0.82em;
+    font-family: inherit;
+    color: var(--color-text);
+    line-height: 1.55;
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 5px;
     padding: 0.5rem 0.65rem;
-    max-height: 120px;
     overflow-y: auto;
+}
+
+.issue-description-edit:focus {
+    outline: none;
+    border-color: var(--color-info);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+}
+
+.description-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.description-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75em;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--color-surface);
+    color: var(--color-text);
+    transition: all 0.15s ease;
+}
+
+.description-btn:hover {
+    background: var(--color-surface-2);
+}
+
+.description-btn-primary {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-bg);
+}
+
+.description-btn-primary:hover {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+}
+
+.description-btn-secondary {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+}
+
+.description-btn-secondary:hover {
+    background: var(--color-surface-2);
+    border-color: var(--color-info);
+}
+
+/* Resizable description container */
+.issue-description-container {
+    position: relative;
+    height: 300px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    overflow: hidden;
+    resize: vertical;
+}
+
+.issue-description-container #issue-description-view,
+.issue-description-container .issue-description-edit-mode {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.description-resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(to bottom, transparent, var(--color-border));
+    cursor: ns-resize;
+    transition: background 0.15s ease;
+}
+
+.description-resize-handle:hover {
+    background: linear-gradient(to bottom, transparent, var(--color-info));
+}
+
+/* Remove border from inner view since container has it */
+.issue-description-container .issue-description-view {
+    border: none;
+    border-radius: 0;
+    padding: 0.5rem 0.65rem;
+    min-height: auto;
+}
+
+.issue-description-container .issue-description-edit-mode {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: none;
+    padding: 0.5rem 0.65rem;
+    gap: 0.5rem;
+}
+
+.issue-description-container .issue-description-edit {
+    flex: 1;
+    border: 1px solid var(--color-border);
+    min-height: auto;
+    max-height: none;
+    resize: none;
+}
+
+/* Comments section */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.section-header h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.comment-count {
+    font-size: 0.75em;
+    background: var(--color-surface);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    color: var(--color-text-muted);
+}
+
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9em;
+    transition: all 0.15s ease;
+}
+
+.toggle-btn:hover {
+    color: var(--color-info);
+}
+
+.toggle-icon {
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.comments-list {
+    max-height: 500px;
+    overflow-y: auto;
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+    opacity: 1;
+}
+
+.comments-list.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.comment-item {
+    border-left: 2px solid var(--color-border);
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    background: var(--color-surface);
+    border-radius: 4px;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.9em;
+}
+
+.comment-header strong {
+    color: var(--color-text);
+}
+
+.comment-date {
+    color: var(--color-text-muted);
+    font-size: 0.85em;
+}
+
+.comment-body {
+    font-size: 0.85em;
+    line-height: 1.5;
+    color: var(--color-text);
+}
+
+.comment-body h1,
+.comment-body h2,
+.comment-body h3,
+.comment-body h4,
+.comment-body h5,
+.comment-body h6 {
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.9em;
+}
+
+.comment-body p {
+    margin: 0.25rem 0;
+}
+
+.comment-body code {
+    background: var(--color-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+}
+
+.comment-body pre {
+    background: var(--color-bg);
+    padding: 0.5rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+}
+
+.no-comments {
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: 0.5rem;
+    text-align: center;
 }
 
 .sidebar-inline {

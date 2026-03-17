@@ -31,8 +31,30 @@ async function ghFetch(path, token, options = {}) {
 }
 
 /**
+ * Fetch comments for a specific issue.
+ */
+export async function fetchIssueComments(owner, repo, token, issueNumber) {
+    const owner_enc = encodeURIComponent(owner);
+    const repo_enc = encodeURIComponent(repo);
+    const comments = [];
+    let page = 1;
+
+    while (true) {
+        const batch = await ghFetch(
+            `/repos/${owner_enc}/${repo_enc}/issues/${issueNumber}/comments?per_page=100&page=${page}`,
+            token,
+        );
+        comments.push(...batch);
+        if (batch.length < 100) break;
+        page++;
+    }
+
+    return comments;
+}
+
+/**
  * Fetch all (open + closed) issues for a repo, filtering out pull requests.
- * Handles pagination automatically.
+ * Handles pagination automatically. Also fetches comments for each issue.
  */
 export async function fetchAllIssues(owner, repo, token) {
     const issues = [];
@@ -47,6 +69,17 @@ export async function fetchAllIssues(owner, repo, token) {
         );
         // GitHub issues endpoint also returns PRs; filter them out.
         const onlyIssues = batch.filter((i) => !i.pull_request);
+        
+        // Fetch comments for each issue
+        for (const issue of onlyIssues) {
+            try {
+                issue._comments = await fetchIssueComments(owner, repo, token, issue.number);
+            } catch (err) {
+                console.warn(`Failed to fetch comments for issue #${issue.number}:`, err);
+                issue._comments = [];
+            }
+        }
+        
         issues.push(...onlyIssues);
         if (batch.length < 100) break;
         page++;
