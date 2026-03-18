@@ -9,7 +9,7 @@ import { marked } from 'marked';
 import { state } from './state.js';
 import { escHtml, escAttr, fmtDate, labelTextColor, normalizeDeps } from './utils.js';
 import { parseRepo, setStatus, getConfig } from './config.js';
-import { recordChange, cascadeDateShift, clampStartToDeps, refreshGanttDates, getLiveTasks } from './tasks.js';
+import { recordChange, cascadeDateShift, clampStartToDeps, refreshGanttDates, getLiveTasks, getVisibleTasks, updateSaveBtn } from './tasks.js';
 import { fetchIssueComments } from './github.js';
 
 const sidebar        = document.getElementById('sidebar');
@@ -533,6 +533,7 @@ function _applyLabelEdit(taskId, issue, mutateFn) {
         : (issue.labels || []).map((l) => l.name);
     const updated = mutateFn(current);
     state.pendingLabelChanges.set(taskId, updated);
+    updateSaveBtn();
     state.ganttInstance?.refresh(getVisibleTasks());
 
     // Re-render sidebar
