@@ -9,7 +9,7 @@
 import Gantt from 'frappe-gantt';
 import '../../gantt/src/styles/gantt.css';
 import '../../gantt/src/styles/themes.css';
-import { fetchAllIssues, fetchParentMap, fetchRepoLabels, validateRepo } from './github.js';
+import { fetchAllIssues, fetchParentMap, fetchRepoLabels, validateRepo, fetchProjectIssueNumbers } from './github.js';
 import { issueToTask } from './mapper.js';
 import './style.css';
 
@@ -115,7 +115,10 @@ settingsForm.addEventListener('submit', async (e) => {
 
     if (!token) { settingsError.textContent = 'Token is required.'; return; }
     const parsed = parseRepo(repoStr);
-    if (!parsed || !parsed.repo) { settingsError.textContent = 'Invalid project URL. Use: https://github.com/owner/repo or owner/repo'; return; }
+    if (!parsed || (!parsed.repo && !parsed.projectId)) { 
+        settingsError.textContent = 'Invalid input. Use: GitHub project URL, owner/repo, or project ID'; 
+        return; 
+    }
 
     settingsError.textContent = '';
     const btn = settingsForm.querySelector('button[type=submit]');
@@ -123,10 +126,19 @@ settingsForm.addEventListener('submit', async (e) => {
     btn.textContent = 'Connecting…';
 
     try {
-        const { owner, repo } = parseRepo(repoStr);
-        const repoData = await validateRepo(owner, repo, token);
+        let owner, repo, projectId;
+        if (parsed.projectId) {
+            projectId = parsed.projectId;
+            owner = parsed.owner;
+        } else {
+            owner = parsed.owner;
+            repo = parsed.repo;
+        }
+        
+        const repoData = await validateRepo(owner, repo, token, projectId);
         saveConfig(token, repoStr);
         repoLabel.textContent = repoData.full_name;
+        state.projectId = projectId || null;
         closeSettingsModal();
         closeSidebar();
         await loadIssues();
@@ -146,7 +158,10 @@ configForm.addEventListener('submit', async (e) => {
 
     if (!token) { configError.textContent = 'Token is required.'; return; }
     const parsed = parseRepo(repoStr);
-    if (!parsed || !parsed.repo) { configError.textContent = 'Invalid project URL. Use: https://github.com/owner/repo or owner/repo'; return; }
+    if (!parsed || (!parsed.repo && !parsed.projectId)) { 
+        configError.textContent = 'Invalid input. Use: GitHub project URL, owner/repo, or project ID'; 
+        return; 
+    }
 
     configError.textContent = '';
     const btn = configForm.querySelector('button[type=submit]');
@@ -154,10 +169,20 @@ configForm.addEventListener('submit', async (e) => {
     btn.textContent = 'Connecting…';
 
     try {
-        const { owner, repo } = parseRepo(repoStr);
-        const repoData = await validateRepo(owner, repo, token);
+        let owner, repo, projectId;
+        if (parsed.projectId) {
+            projectId = parsed.projectId;
+            owner = parsed.owner;
+            // Will fetch project details to get repo if needed
+        } else {
+            owner = parsed.owner;
+            repo = parsed.repo;
+        }
+        
+        const repoData = await validateRepo(owner, repo, token, projectId);
         saveConfig(token, repoStr);
         repoLabel.textContent = repoData.full_name;
+        state.projectId = projectId || null;
         showMain();
         await loadIssues();
     } catch (err) {
@@ -236,9 +261,50 @@ async function loadIssues() {
     saveBtn.disabled = true;
 
     try {
-        state.allIssues  = await fetchAllIssues(parsed.owner, parsed.repo, token);
-        state.parentMap  = await fetchParentMap(parsed.owner, parsed.repo, token, state.allIssues);
-        state.repoLabels = await fetchRepoLabels(parsed.owner, parsed.repo, token);
+        let allIssues, owner, repo, projectId;
+        
+        if (parsed.projectId) {
+            // Load from project
+            projectId = parsed.projectId;
+            owner = parsed.owner;
+            setStatus('Fetching project data…');
+            
+            // Get all issue numbers in the project
+            const projectIssueNumbers = await fetchProjectIssueNumbers(projectId, token);
+            state.projectIssueNumbers = projectIssueNumbers;
+            state.projectId = projectId;
+            
+            if (projectIssueNumbers.size === 0) {
+                document.getElementById('gantt-wrapper').innerHTML = '<div class="empty">No issues found in this project.</div>';
+                setStatus('No issues found in project');
+                return;
+            }
+            
+            // Fetch issues from all repos in the org or specified repo
+            if (parsed.repo) {
+                // Specific repo provided with project
+                allIssues = await fetchAllIssues(owner, parsed.repo, token);
+            } else {
+                // Need to get issues from multiple repos — for now, require user to specify repo
+                document.getElementById('gantt-wrapper').innerHTML = '<div class="empty">Please specify both project URL and repository (owner/repo) for multi-repo projects.</div>';
+                setStatus('Multi-repo projects require explicit owner/repo');
+                return;
+            }
+            
+            // Filter to only issues in the project
+            allIssues = allIssues.filter((issue) => projectIssueNumbers.has(String(issue.number)));
+            repo = parsed.repo;
+        } else {
+            // Load from repo
+            owner = parsed.owner;
+            repo = parsed.repo;
+            if (!repo) { setStatus('Repository is required', 'error'); return; }
+            allIssues = await fetchAllIssues(owner, repo, token);
+        }
+
+        state.allIssues  = allIssues;
+        state.parentMap  = await fetchParentMap(owner, repo, token, state.allIssues);
+        state.repoLabels = await fetchRepoLabels(owner, repo, token);
         state.allTasks   = state.allIssues.map((issue) => issueToTask(issue, state.parentMap));
 
         state.pendingChanges.clear();
@@ -253,7 +319,7 @@ async function loadIssues() {
         openOnlyFilter.checked = state.openOnly;
 
         if (state.allTasks.length === 0) {
-            document.getElementById('gantt-wrapper').innerHTML = '<div class="empty">No issues found in this repository.</div>';
+            document.getElementById('gantt-wrapper').innerHTML = '<div class="empty">No issues found.</div>';
             setStatus('No issues found');
             return;
         }

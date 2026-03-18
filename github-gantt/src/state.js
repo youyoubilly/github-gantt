@@ -16,6 +16,12 @@ export const state = {
     /** Gantt task objects derived from allIssues. */
     allTasks: [],
 
+    /** Project ID being viewed (if loading from project). */
+    projectId: null,
+
+    /** All issue numbers that belong to the current project. Used for filtering. */
+    projectIssueNumbers: new Set(),
+
     /**
      * Edits not yet pushed to GitHub.
      * @type {Map<string, {start?:string, end?:string, progress?:number, deps?:string[]}>}

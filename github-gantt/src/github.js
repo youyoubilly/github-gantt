@@ -31,6 +31,31 @@ async function ghFetch(path, token, options = {}) {
 }
 
 /**
+ * Helper for GraphQL queries (used for Projects v2 API).
+ */
+async function ghGraphQL(query, token, variables = {}) {
+    const res = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query, variables }),
+    });
+
+    if (!res.ok) {
+        throw new Error(`GitHub GraphQL error: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    if (data.errors) {
+        throw new Error(`GitHub GraphQL error: ${data.errors[0]?.message || 'Unknown error'}`);
+    }
+
+    return data.data;
+}
+
+/**
  * Fetch comments for a specific issue.
  */
 export async function fetchIssueComments(owner, repo, token, issueNumber) {
@@ -75,6 +100,57 @@ export async function fetchAllIssues(owner, repo, token) {
     }
 
     return issues;
+}
+
+/**
+ * Fetch all issue numbers that belong to a GitHub Project v2.
+ * Returns a Set of issue numbers as strings.
+ */
+export async function fetchProjectIssueNumbers(projectId, token) {
+    const issueNumbers = new Set();
+    let hasNextPage = true;
+    let endCursor = null;
+
+    while (hasNextPage) {
+        const query = `
+            query GetProjectIssues($projectId: ID!, $after: String) {
+                node(id: $projectId) {
+                    ... on ProjectV2 {
+                        items(first: 100, after: $after) {
+                            pageInfo {
+                                hasNextPage
+                                endCursor
+                            }
+                            nodes {
+                                content {
+                                    ... on Issue {
+                                        number
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        const data = await ghGraphQL(query, token, { projectId, after: endCursor });
+        
+        if (!data?.node?.items) {
+            break;
+        }
+
+        for (const item of data.node.items.nodes || []) {
+            if (item.content?.number) {
+                issueNumbers.add(String(item.content.number));
+            }
+        }
+
+        hasNextPage = data.node.items.pageInfo.hasNextPage;
+        endCursor = data.node.items.pageInfo.endCursor;
+    }
+
+    return issueNumbers;
 }
 
 /**
@@ -197,9 +273,38 @@ export function addSubIssue(owner, repo, token, parentNumber, childIssueId) {
 
 /**
  * Validate that the token can access the given repo by reading its metadata.
+ * If projectId is provided, fetch project details instead.
  */
-export function validateRepo(owner, repo, token) {
-    const owner_enc = encodeURIComponent(owner);
-    const repo_enc = encodeURIComponent(repo);
-    return ghFetch(`/repos/${owner_enc}/${repo_enc}`, token);
+export async function validateRepo(owner, repo, token, projectId) {
+    if (projectId) {
+        // Validate project access via GraphQL
+        const query = `
+            query GetProject($projectId: ID!) {
+                node(id: $projectId) {
+                    ... on ProjectV2 {
+                        title
+                        url
+                        owner {
+                            ... on Organization {
+                                name
+                                login
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+        const data = await ghGraphQL(query, token, { projectId });
+        
+        if (!data?.node) {
+            throw new Error('Project not found or access denied');
+        }
+        
+        const name = data.node.owner?.login || 'project';
+        return { full_name: `${name}/project-${projectId}`, projectId };
+    } else {
+        const owner_enc = encodeURIComponent(owner);
+        const repo_enc = encodeURIComponent(repo);
+        return ghFetch(`/repos/${owner_enc}/${repo_enc}`, token);
+    }
 }
