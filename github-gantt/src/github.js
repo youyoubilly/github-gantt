@@ -56,6 +56,29 @@ async function ghGraphQL(query, token, variables = {}) {
 }
 
 /**
+ * Get the global node ID for a GitHub project using org name and project number.
+ */
+export async function getProjectNodeId(orgName, projectNumber, token) {
+    const query = `
+        query GetProject($org: String!, $projectNum: Int!) {
+            organization(login: $org) {
+                projectV2(number: $projectNum) {
+                    id
+                }
+            }
+        }
+    `;
+
+    const data = await ghGraphQL(query, token, { org: orgName, projectNum: parseInt(projectNumber, 10) });
+    
+    if (!data?.organization?.projectV2?.id) {
+        throw new Error('Project not found. Verify org name and project number.');
+    }
+    
+    return data.organization.projectV2.id;
+}
+
+/**
  * Fetch comments for a specific issue.
  */
 export async function fetchIssueComments(owner, repo, token, issueNumber) {
@@ -105,8 +128,14 @@ export async function fetchAllIssues(owner, repo, token) {
 /**
  * Fetch all issue numbers that belong to a GitHub Project v2.
  * Returns a Set of issue numbers as strings.
+ * @param {string} projectNumber - The numeric project number from the URL (e.g., "14")
+ * @param {string} orgName - The organization name
+ * @param {string} token - GitHub API token
  */
-export async function fetchProjectIssueNumbers(projectId, token) {
+export async function fetchProjectIssueNumbers(projectNumber, orgName, token) {
+    // First, get the global node ID for the project
+    const projectNodeId = await getProjectNodeId(orgName, projectNumber, token);
+    
     const issueNumbers = new Set();
     let hasNextPage = true;
     let endCursor = null;
@@ -134,7 +163,7 @@ export async function fetchProjectIssueNumbers(projectId, token) {
             }
         `;
 
-        const data = await ghGraphQL(query, token, { projectId, after: endCursor });
+        const data = await ghGraphQL(query, token, { projectId: projectNodeId, after: endCursor });
         
         if (!data?.node?.items) {
             break;
@@ -277,31 +306,26 @@ export function addSubIssue(owner, repo, token, parentNumber, childIssueId) {
  */
 export async function validateRepo(owner, repo, token, projectId) {
     if (projectId) {
-        // Validate project access via GraphQL
+        // Validate project access via GraphQL using org name + project number
         const query = `
-            query GetProject($projectId: ID!) {
-                node(id: $projectId) {
-                    ... on ProjectV2 {
+            query GetProject($org: String!, $projectNum: Int!) {
+                organization(login: $org) {
+                    projectV2(number: $projectNum) {
+                        id
                         title
                         url
-                        owner {
-                            ... on Organization {
-                                name
-                                login
-                            }
-                        }
                     }
                 }
             }
         `;
-        const data = await ghGraphQL(query, token, { projectId });
+        const data = await ghGraphQL(query, token, { org: owner, projectNum: parseInt(projectId, 10) });
         
-        if (!data?.node) {
-            throw new Error('Project not found or access denied');
+        if (!data?.organization?.projectV2) {
+            throw new Error('Project not found. Verify org name and project number.');
         }
         
-        const name = data.node.owner?.login || 'project';
-        return { full_name: `${name}/project-${projectId}`, projectId };
+        const projectName = data.organization.projectV2.title || `project-${projectId}`;
+        return { full_name: `${owner}/${projectName}`, projectId };
     } else {
         const owner_enc = encodeURIComponent(owner);
         const repo_enc = encodeURIComponent(repo);

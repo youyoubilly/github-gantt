@@ -270,7 +270,7 @@ async function loadIssues() {
             setStatus('Fetching project data…');
             
             // Get all issue numbers in the project
-            const projectIssueNumbers = await fetchProjectIssueNumbers(projectId, token);
+            const projectIssueNumbers = await fetchProjectIssueNumbers(projectId, owner, token);
             state.projectIssueNumbers = projectIssueNumbers;
             state.projectId = projectId;
             
