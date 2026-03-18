@@ -137,9 +137,15 @@ settingsForm.addEventListener('submit', async (e) => {
         
         const repoData = await validateRepo(owner, repo, token, projectId);
         saveConfig(token, repoStr);
-        // Extract just the name part (after the slash) for display
-        const displayName = repoData.full_name.includes('/') ? repoData.full_name.split('/')[1] : repoData.full_name;
-        repoLabel.textContent = displayName;
+        
+        // Update header with project title if it's a project, otherwise repo name
+        if (projectId) {
+            const projectInfo = await getProjectInfo(owner, projectId, token);
+            repoLabel.textContent = projectInfo.title;
+        } else {
+            const displayName = repoData.full_name.includes('/') ? repoData.full_name.split('/')[1] : repoData.full_name;
+            repoLabel.textContent = displayName;
+        }
         state.projectId = projectId || null;
         closeSettingsModal();
         closeSidebar();
@@ -183,9 +189,15 @@ configForm.addEventListener('submit', async (e) => {
         
         const repoData = await validateRepo(owner, repo, token, projectId);
         saveConfig(token, repoStr);
-        // Extract just the name part (after the slash) for display
-        const displayName = repoData.full_name.includes('/') ? repoData.full_name.split('/')[1] : repoData.full_name;
-        repoLabel.textContent = displayName;
+        
+        // Update header with project title if it's a project, otherwise repo name
+        if (projectId) {
+            const projectInfo = await getProjectInfo(owner, projectId, token);
+            repoLabel.textContent = projectInfo.title;
+        } else {
+            const displayName = repoData.full_name.includes('/') ? repoData.full_name.split('/')[1] : repoData.full_name;
+            repoLabel.textContent = displayName;
+        }
         state.projectId = projectId || null;
         showMain();
         await loadIssues();
