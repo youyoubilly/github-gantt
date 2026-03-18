@@ -115,8 +115,8 @@ settingsForm.addEventListener('submit', async (e) => {
 
     if (!token) { settingsError.textContent = 'Token is required.'; return; }
     const parsed = parseRepo(repoStr);
-    if (!parsed || (!parsed.repo && !parsed.projectId)) { 
-        settingsError.textContent = 'Invalid input. Use: GitHub project URL, owner/repo, or project ID'; 
+    if (!parsed || !parsed.projectId) { 
+        settingsError.textContent = 'Please enter a GitHub project URL (e.g., https://github.com/orgs/owner/projects/14)'; 
         return; 
     }
 
@@ -126,27 +126,15 @@ settingsForm.addEventListener('submit', async (e) => {
     btn.textContent = 'Connecting…';
 
     try {
-        let owner, repo, projectId;
-        if (parsed.projectId) {
-            projectId = parsed.projectId;
-            owner = parsed.owner;
-        } else {
-            owner = parsed.owner;
-            repo = parsed.repo;
-        }
+        const projectId = parsed.projectId;
+        const owner = parsed.owner;
         
-        const repoData = await validateRepo(owner, repo, token, projectId);
+        const projectInfo = await getProjectInfo(owner, projectId, token);
         saveConfig(token, repoStr);
         
-        // Update header with project title if it's a project, otherwise repo name
-        if (projectId) {
-            const projectInfo = await getProjectInfo(owner, projectId, token);
-            repoLabel.textContent = projectInfo.title;
-        } else {
-            const displayName = repoData.full_name.includes('/') ? repoData.full_name.split('/')[1] : repoData.full_name;
-            repoLabel.textContent = displayName;
-        }
-        state.projectId = projectId || null;
+        // Update header with project title
+        repoLabel.textContent = projectInfo.title;
+        state.projectId = projectId;
         closeSettingsModal();
         closeSidebar();
         await loadIssues();
@@ -166,8 +154,8 @@ configForm.addEventListener('submit', async (e) => {
 
     if (!token) { configError.textContent = 'Token is required.'; return; }
     const parsed = parseRepo(repoStr);
-    if (!parsed || (!parsed.repo && !parsed.projectId)) { 
-        configError.textContent = 'Invalid input. Use: GitHub project URL, owner/repo, or project ID'; 
+    if (!parsed || !parsed.projectId) { 
+        configError.textContent = 'Please enter a GitHub project URL (e.g., https://github.com/orgs/owner/projects/14)'; 
         return; 
     }
 
@@ -177,28 +165,15 @@ configForm.addEventListener('submit', async (e) => {
     btn.textContent = 'Connecting…';
 
     try {
-        let owner, repo, projectId;
-        if (parsed.projectId) {
-            projectId = parsed.projectId;
-            owner = parsed.owner;
-            // Will fetch project details to get repo if needed
-        } else {
-            owner = parsed.owner;
-            repo = parsed.repo;
-        }
+        const projectId = parsed.projectId;
+        const owner = parsed.owner;
         
-        const repoData = await validateRepo(owner, repo, token, projectId);
+        const projectInfo = await getProjectInfo(owner, projectId, token);
         saveConfig(token, repoStr);
         
-        // Update header with project title if it's a project, otherwise repo name
-        if (projectId) {
-            const projectInfo = await getProjectInfo(owner, projectId, token);
-            repoLabel.textContent = projectInfo.title;
-        } else {
-            const displayName = repoData.full_name.includes('/') ? repoData.full_name.split('/')[1] : repoData.full_name;
-            repoLabel.textContent = displayName;
-        }
-        state.projectId = projectId || null;
+        // Update header with project title
+        repoLabel.textContent = projectInfo.title;
+        state.projectId = projectId;
         showMain();
         await loadIssues();
     } catch (err) {

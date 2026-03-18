@@ -34,13 +34,13 @@
                         required
                     />
 
-                    <label for="gh-repo">Project URL or Repository</label>
+                    <label for="gh-repo">GitHub Project URL</label>
                     <input
                         type="text"
                         id="gh-repo"
                         name="gh-repo"
-                        placeholder="https://github.com/orgs/owner/projects/14 or owner/repo"
-                        title="Enter a GitHub project URL (repo auto-detected) or owner/repo"
+                        placeholder="https://github.com/orgs/owner/projects/14"
+                        title="Enter a GitHub project URL"
                         required
                     />
 
@@ -119,10 +119,10 @@
                     <input type="password" id="s-gh-token" name="s-gh-token"
                            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" required />
 
-                    <label for="s-gh-repo">Repository</label>
+                    <label for="s-gh-repo">GitHub Project URL</label>
                     <input type="text" id="s-gh-repo" name="s-gh-repo"
-                           placeholder="owner/repo" pattern="[^/]+/[^/]+"
-                           title="Must be in owner/repo format" required />
+                           placeholder="https://github.com/orgs/owner/projects/14"
+                           title="Enter a GitHub project URL" required />
 
                     <p class="config-note">
                         Your token is stored only in <code>localStorage</code> and sent
