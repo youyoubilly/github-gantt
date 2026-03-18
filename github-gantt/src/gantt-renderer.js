@@ -93,9 +93,11 @@ export function renderGantt(tasks, { onTaskClick } = {}) {
     state.ganttInstance.refresh = (refreshTasks) => {
         _origRefresh(refreshTasks);
         attachRowDragHandles();
+        attachViewportPan();
     };
 
     attachRowDragHandles();
+    attachViewportPan();
 }
 
 // ─── Row drag-to-reorder ──────────────────────────────────────────────────────
@@ -198,6 +200,87 @@ function _startRowDrag(e, taskId, tasks, container, rowHeight, headerH) {
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+}
+
+// ─── Viewport panning ─────────────────────────────────────────────────────────
+
+/**
+ * Allow dragging on empty areas to pan the viewport.
+ * Called after every render/refresh so handlers stay active.
+ */
+function attachViewportPan() {
+    const ganttContainer = ganttWrapper.querySelector('.gantt-container');
+    if (!ganttContainer) return;
+
+    // Remove any existing pan listener to avoid duplicates
+    if (ganttContainer._panOff) {
+        ganttContainer._panOff();
+    }
+
+    function onMouseDown(e) {
+        // Don't pan if clicking on a bar, row handle, or any interactive element
+        const target = e.target;
+        if (
+            target.closest('.bar-wrapper') ||
+            target.closest('.row-drag-handle') ||
+            target.closest('.bar-progress') ||
+            target.closest('input') ||
+            target.closest('button')
+        ) {
+            return;
+        }
+
+        // Only pan on left-click/drag
+        if (e.button !== 0) return;
+
+        e.preventDefault();
+        
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startScrollLeft = ganttContainer.scrollLeft;
+        const startScrollTop = ganttContainer.scrollTop;
+
+        ganttContainer.style.cursor = 'grabbing';
+
+        function onMove(ev) {
+            const deltaX = ev.clientX - startX;
+            const deltaY = ev.clientY - startY;
+            ganttContainer.scrollLeft = startScrollLeft - deltaX;
+            ganttContainer.scrollTop = startScrollTop - deltaY;
+        }
+
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            ganttContainer.style.cursor = 'grab';
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    // Use grab cursor by default when hovering over empty space
+    function onMouseMove(e) {
+        const target = e.target;
+        if (
+            target.closest('.bar-wrapper') ||
+            target.closest('.row-drag-handle') ||
+            target.closest('input') ||
+            target.closest('button')
+        ) {
+            ganttContainer.style.cursor = 'default';
+        } else {
+            ganttContainer.style.cursor = 'grab';
+        }
+    }
+
+    ganttContainer.addEventListener('mousedown', onMouseDown);
+    ganttContainer.addEventListener('mousemove', onMouseMove);
+
+    ganttContainer._panOff = () => {
+        ganttContainer.removeEventListener('mousedown', onMouseDown);
+        ganttContainer.removeEventListener('mousemove', onMouseMove);
+    };
 }
 
 // ─── Bar colours ─────────────────────────────────────────────────────────────

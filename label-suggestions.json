@@ -1,0 +1,296 @@
+[
+  {
+    "number": 89,
+    "title": "修复ch32切换usb的时候会block住主线程的问题",
+    "current": [
+      "MacOS/iPadOS/iOS",
+      "Medium"
+    ],
+    "suggested": [
+      "Medium",
+      "bug",
+      "usb"
+    ],
+    "changed": true
+  },
+  {
+    "number": 90,
+    "title": "修复bugs",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "bug",
+      "distribution",
+      "hardware-acceleration",
+      "windows"
+    ],
+    "changed": true
+  },
+  {
+    "number": 91,
+    "title": "启动软件的时候添加更新软件的提示",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "feature",
+      "linux",
+      "windows"
+    ],
+    "changed": true
+  },
+  {
+    "number": 92,
+    "title": "ms2109s修改EDID",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium"
+    ],
+    "changed": true
+  },
+  {
+    "number": 93,
+    "title": "ms2109S的固件烧写",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "feature"
+    ],
+    "changed": true
+  },
+  {
+    "number": 94,
+    "title": "修复鼠标移动缓慢的问题",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "bug",
+      "hardware-acceleration"
+    ],
+    "changed": true
+  },
+  {
+    "number": 95,
+    "title": "重构windowsdevicemanager分离出长函数的逻辑，让windowsdevicemanager只是担任调度者的工作",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "refactor",
+      "windows"
+    ],
+    "changed": true
+  },
+  {
+    "number": 96,
+    "title": "直接使用vscode调试openterfaceQT",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "qt",
+      "windows"
+    ],
+    "changed": true
+  },
+  {
+    "number": 97,
+    "title": "在QT添加温度的读取的代码，并显示在statusbar上",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "feature",
+      "qt",
+      "usb"
+    ],
+    "changed": true
+  },
+  {
+    "number": 98,
+    "title": "ffmpegbackend重构，分离出相应函数的功能",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "ffmpeg",
+      "refactor"
+    ],
+    "changed": true
+  },
+  {
+    "number": 99,
+    "title": "Linux中不能正常使用KVMGO键鼠，并且权限不足的问题修复",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "bug",
+      "kvm",
+      "linux"
+    ],
+    "changed": true
+  },
+  {
+    "number": 100,
+    "title": "完成放大缩小功能",
+    "current": [
+      "MacOS/iPadOS/iOS",
+      "Medium"
+    ],
+    "suggested": [
+      "Medium"
+    ],
+    "changed": true
+  },
+  {
+    "number": 101,
+    "title": "发布iPadOS软件",
+    "current": [
+      "MacOS/iPadOS/iOS",
+      "Medium"
+    ],
+    "suggested": [
+      "Medium",
+      "macos"
+    ],
+    "changed": true
+  },
+  {
+    "number": 102,
+    "title": "非root用户安装，在start菜单未能找到软件",
+    "current": [
+      "General",
+      "Medium"
+    ],
+    "suggested": [
+      "Medium"
+    ],
+    "changed": true
+  },
+  {
+    "number": 103,
+    "title": "增加Arm64 Windows版",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "windows"
+    ],
+    "changed": true
+  },
+  {
+    "number": 104,
+    "title": "更新flatpak",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "distribution",
+      "enhancement"
+    ],
+    "changed": true
+  },
+  {
+    "number": 105,
+    "title": "重构QTwindows中的视频流播放，使用ffmpeg因为QT自带的视频播放不能调用GPU decoder去解析mjpeg只有ffmpeg才能够调用硬件加速",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "ci/cd",
+      "ffmpeg",
+      "hardware-acceleration",
+      "linux",
+      "qt",
+      "refactor",
+      "windows"
+    ],
+    "changed": true
+  },
+  {
+    "number": 106,
+    "title": "支持软件一直静音，通过按钮取消静音",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium"
+    ],
+    "changed": true
+  },
+  {
+    "number": 107,
+    "title": "更新QT版本的翻译",
+    "current": [
+      "Medium",
+      "QT(Windows/Linux)"
+    ],
+    "suggested": [
+      "Medium",
+      "ci/cd",
+      "enhancement",
+      "i18n",
+      "qt"
+    ],
+    "changed": true
+  },
+  {
+    "number": 108,
+    "title": "支持KVM Go并发布版本",
+    "current": [
+      "Andriod",
+      "Medium"
+    ],
+    "suggested": [
+      "Medium",
+      "kvm"
+    ],
+    "changed": true
+  },
+  {
+    "number": 109,
+    "title": "用Jenkins构建arm64 package",
+    "current": [
+      "General",
+      "Medium"
+    ],
+    "suggested": [
+      "Medium",
+      "ci/cd",
+      "distribution"
+    ],
+    "changed": true
+  }
+]
